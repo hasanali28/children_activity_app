@@ -18,29 +18,24 @@ MOTION = "Study Motion"
 st.header("Visualisation Analytics")
 
 @st.cache
-def foo():
+def LoadingData():
     with open('KeyFrameDensityData_1.json','r') as f:
         js = json.load(f)
     return js
 
 opt = st.sidebar.radio("Choose",[SNS_DATA, MOTION])
 if opt == MOTION:
-    js = foo()
+    js = LoadingData()
     IDS = [i['id'] for i in js ]
     TIMES = [i['data']['Created'] for i in js ]
     df = pd.DataFrame({'date':TIMES,'sessions':IDS })
-    df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d', utc = True).dt.date
+
     with st.form(MOTION):
-        start_date,  viz = st.columns(2)
-        with viz:
-            st.title(f"#{len(TIMES)} sessions ")
-        with start_date:
-            dt = st.date_input('Start date', 
-                        df.date.min(),
-                        min_value= df.date.min(), 
-                        max_value= df.date.max())
-        options = df[df.date == dt ]['sessions'].values
-        keyframe_ids = st.selectbox("Choose Session",range(len(options)), format_func=lambda x: options[x] )
+
+        st.title(f"#{len(TIMES)} sessions ")
+
+        options = df['sessions'].values
+        keyframe_ids = st.selectbox("Choose Session", range(len(options)), format_func=lambda x: options[x] )
         submit = st.form_submit_button("Submit")
 
     if submit:
@@ -73,8 +68,6 @@ else:
 
     submit = st.button("Submit")
 
-    
-
     ## Go Buttton 
     # processs = st.button("Go!")
     if submit:
@@ -90,6 +83,7 @@ else:
                 f,ax = plt.subplots(figsize = (20,5))
                 ax.plot(X)
                 st.pyplot(f)
+
         # Plotting STD and AR of sensor data
         final = final[["AccelerometerAbsolute","GyroscopeAbsolute"]].diff()
         final.dropna(inplace=True, how='any')
