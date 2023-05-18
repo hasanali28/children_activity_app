@@ -22,14 +22,14 @@ def foo():
     with open('KeyFrameDensityData_1.json','r') as f:
         js = json.load(f)
     return js
-js = foo()
-IDS = [i['id'] for i in js ]
-TIMES = [i['data']['Created'] for i in js ]
-df = pd.DataFrame({'date':TIMES,'sessions':IDS })
-df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d', utc = True).dt.date
 
 opt = st.sidebar.radio("Choose",[SNS_DATA, MOTION])
 if opt == MOTION:
+    js = foo()
+    IDS = [i['id'] for i in js ]
+    TIMES = [i['data']['Created'] for i in js ]
+    df = pd.DataFrame({'date':TIMES,'sessions':IDS })
+    df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d', utc = True).dt.date
     with st.form(MOTION):
         start_date,  viz = st.columns(2)
         with viz:
@@ -39,10 +39,25 @@ if opt == MOTION:
                         df.date.min(),
                         min_value= df.date.min(), 
                         max_value= df.date.max())
-        
-
-        keyframe_ids = st.multiselect("Choose Session",df[df.date == dt ]['sessions'].values )
+        options = df[df.date == dt ]['sessions'].values
+        keyframe_ids = st.selectbox("Choose Session",range(len(options)), format_func=lambda x: options[x] )
         submit = st.form_submit_button("Submit")
+
+    if submit:
+        X = [i['Position']['X'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        Y = [i['Position']['Y'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        Z = [i['Position']['Z'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        t = [i['DeltaTime'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        df = pd.DataFrame({"time": t ,"x" : X, "y" : Y, "z" : Z})
+        df['time'] = df['time'].cumsum()
+        fig = px.line_3d(
+                    data_frame = df, 
+                    x = df['x'].values, 
+                    y = df['y'].values, 
+                    z = df['z'].values,
+                    )
+        # fig.update_layout(px.scatter_3d(pd.DataFrame("x":[0])))
+        st.plotly_chart(fig)
 else:
 
     filepath  = st.selectbox("Select Folder",
