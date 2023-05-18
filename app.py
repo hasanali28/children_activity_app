@@ -1,6 +1,6 @@
 import streamlit as st
 import plotly.express as px
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta,date
 
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -12,63 +12,77 @@ import numpy as np
 import json
 import os 
 
-def create_dr(df):
-    minn = df.index.values.min()
-    maxx = df.index.values.max()
-    date_range =pd.date_range(start=minn, end=maxx, freq='ms')
-
-    return date_range
-
+cwd = os.getcwd()
+SNS_DATA = "Visualize Sensor Data"
+MOTION = "Study Motion"
 st.header("Visualisation Analytics")
-filepath  = st.selectbox("Select Folder",
-            [i for i in  os.listdir(os.getcwd()) if ((os.path.isdir(i)) and ('.' not in i))],
+
+@st.cache
+def foo():
+    with open('KeyFrameDensityData_1.json','r') as f:
+        js = json.load(f)
+    return js
+js = foo()
+IDS = [i['id'] for i in js ]
+TIMES = [i['data']['Created'] for i in js ]
+df = pd.DataFrame({'date':TIMES,'sessions':IDS })
+df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d', utc = True).dt.date
+
+opt = st.sidebar.radio("Choose",[SNS_DATA, MOTION])
+if opt == MOTION:
+    with st.form(MOTION):
+        start_date,  viz = st.columns(2)
+        with viz:
+            st.title(f"#{len(TIMES)} sessions ")
+        with start_date:
+            dt = st.date_input('Start date', 
+                        df.date.min(),
+                        min_value= df.date.min(), 
+                        max_value= df.date.max())
+        
+
+        keyframe_ids = st.multiselect("Choose Session",df[df.date == dt ]['sessions'].values )
+        submit = st.form_submit_button("Submit")
+else:
+
+    filepath  = st.selectbox("Select Folder",
+            [i for i in  os.listdir( cwd ) if ( ( os.path.isdir(i) ) and ('.' not in i))],
             index = 1)
-ls = sorted( glob(f"{filepath}/[!T]*") )
-ls = [ i for i in ls if 'iotool' in i.lower() ]
-kid = st.selectbox('Select Kid', ls)
-st.text(glob(f"{kid}/f*.csv"))
-fr = st.checkbox('Apply Fourier Transform !')
-if fr:
-    col =  st.selectbox("Choose to column to apply Fourier Transform !", 
+    ls = sorted( glob(f"{filepath}/[!T]*") )
+    ls = [ i for i in ls if 'iotool' in i.lower() ]
+    kid = st.selectbox('Select Kid', ls)
+    fr = st.checkbox("Apply Fourier Transform !")
+    if fr:
+        col =  st.selectbox("Choose to column to apply Fourier Transform !", 
     ['AccelerometerAbsolute','GyroscopeX','GyroscopeZ','GyroscopeY'] )
 
+    submit = st.button("Submit")
 
-processs = st.button("Go!")
+    
 
-if processs:
-    with st.spinner("In Progress"):
-        # folder = ls[kid-1]
-        set_dt = False
-        for csv in glob(f"{kid}/f*.parquet"):
-            st.text(csv)
-            final = pd.read_parquet(csv)
-        # final = final.reindex(sorted(final.columns), axis=1)
-        # final.set_index(keys=['date'], inplace=True)
-        final['GyroscopeAbsolute'] = np.sqrt(final[["GyroscopeX",	"GyroscopeY",	"GyroscopeZ"]].sum(axis=1)**2)
+    ## Go Buttton 
+    # processs = st.button("Go!")
+    if submit:
+        # loading the Parquet
+        with st.spinner("In Progress"):
+            st.text(os.path.join(kid,'final.parquet'))
+            final = pd.read_parquet(os.path.join(kid,'final.parquet'))
+            final['GyroscopeAbsolute'] = np.sqrt(final[["GyroscopeX",	"GyroscopeY",	"GyroscopeZ"]].sum(axis=1)**2)
 
-    if fr:
+        # Plotting STD and AR of sensor data
+        final = final[["AccelerometerAbsolute","GyroscopeAbsolute"]].diff()
+        final.dropna(inplace=True, how='any')
         with st.spinner("Plotting"):
-            X = final[col].values
-            X = fft(X)
-            f,ax = plt.subplots(figsize = (20,5))
-            ax.plot(X)
+            f,[ax1,ax2] = plt.subplots(2,1, figsize = (20,10))
+            final.plot(alpha = 0.6, ax =  ax1)
+            df = final.resample('100ms').agg({'AccelerometerAbsolute': [np.var, np.std] , 'GyroscopeAbsolute': [np.var, np.std] })
+            df = df.T.reset_index(drop=True).T
+            df.columns = ['AccAbs_var','AccAbs_std','GyroAbs_var','GyroAbs_std']
+            df.plot(alpha = 0.4,ax = ax2)
+            ax1.legend(bbox_to_anchor=(1.1, 1.05))
+            ax2.legend(bbox_to_anchor=(1.1, 1.05))
             st.pyplot(f)
 
-    final = final[["AccelerometerAbsolute","GyroscopeAbsolute"]].diff()
-    final.dropna(inplace=True, how='any')
-    with st.spinner("Plotting"):
-        f,[ax1,ax2] = plt.subplots(2,1, figsize = (20,10))
-        final.plot(alpha = 0.6, ax =  ax1)
-        df = final.resample('100ms').agg({'AccelerometerAbsolute': [np.var, np.std] , 'GyroscopeAbsolute': [np.var, np.std] })
-        df = df.T.reset_index(drop=True).T
-        df.columns = ['AccAbs_var','AccAbs_std','GyroAbs_var','GyroAbs_std']
-        df.plot(alpha = 0.4,ax = ax2)
-        ax1.legend(bbox_to_anchor=(1.1, 1.05))
-        ax2.legend(bbox_to_anchor=(1.1, 1.05))
-        # fig = px.line(final.reset_index(), x ='date' , y = ['AccelerometerAbsolute','GyroscopeX','GyroscopeZ','GyroscopeY'])
-        st.pyplot(f)
-        # st.plotly_chart(fig,   theme="streamlit")
-   
         
     # if anime:
     #     with open(js,'r') as f:
