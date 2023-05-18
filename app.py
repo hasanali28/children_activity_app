@@ -68,7 +68,13 @@ else:
             st.text(os.path.join(kid,'final.parquet'))
             final = pd.read_parquet(os.path.join(kid,'final.parquet'))
             final['GyroscopeAbsolute'] = np.sqrt(final[["GyroscopeX",	"GyroscopeY",	"GyroscopeZ"]].sum(axis=1)**2)
-
+        if fr:
+            with st.spinner("Plotting"):
+                X = final[col].values
+                X = fft(X)
+                f,ax = plt.subplots(figsize = (20,5))
+                ax.plot(X)
+                st.pyplot(f)
         # Plotting STD and AR of sensor data
         final = final[["AccelerometerAbsolute","GyroscopeAbsolute"]].diff()
         final.dropna(inplace=True, how='any')
@@ -82,7 +88,7 @@ else:
             ax1.legend(bbox_to_anchor=(1.1, 1.05))
             ax2.legend(bbox_to_anchor=(1.1, 1.05))
             st.pyplot(f)
-
+        
         
     # if anime:
     #     with open(js,'r') as f:
