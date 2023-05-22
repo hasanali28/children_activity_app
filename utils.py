@@ -17,7 +17,7 @@ def noise_filter(y):
     a = 1
     return lfilter(b, a, y)
 
-def data_preprocessing(df):
+def data_preprocessing(final):
     for col in ["AccelerometerX","AccelerometerY","AccelerometerZ"]:
             final[col] = sosfilt( SOS, final[col].values)
     for col in ["GyroscopeX",	"GyroscopeY",	"GyroscopeZ"]:

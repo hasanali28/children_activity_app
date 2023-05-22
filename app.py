@@ -2,6 +2,7 @@ import streamlit as st
 import plotly.express as px
 from datetime import datetime, timedelta,date
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.animation
 from scipy.fftpack import fft
@@ -11,6 +12,8 @@ import pandas as pd
 import numpy as np
 import json
 import os 
+
+dis = MinMaxScaler()
 
 cwd = os.getcwd()
 SNS_DATA = "Visualize Sensor Data"
@@ -39,24 +42,34 @@ if opt == MOTION:
         submit = st.form_submit_button("Submit")
 
     if submit:
-        X = [i['Position']['X'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
-        Y = [i['Position']['Y'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
-        Z = [i['Position']['Z'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        x = [i['Position']['X'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        y = [i['Position']['Y'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        z = [i['Position']['Z'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        X = [i['Rotation']['X'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        Y = [i['Rotation']['Y'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        Z = [i['Rotation']['Z'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        W = [i['Rotation']['W'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
         t = [i['DeltaTime'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
-        df = pd.DataFrame({"time": t ,"x" : X, "y" : Y, "z" : Z})
+        df = pd.DataFrame({ "time": t ,"x" : x, "y" : y, "z" : z, 
+                            "rotation_X" : X, "rotation_Y" : Y, "rotation_Z" : Z, "orientaion_W": W })
         df['time'] = df['time'].cumsum()
+        df['distance'] = df[["x",  "y",	"z"]].apply(lambda x : (sum([i**2 for i in x.values]))**0.5, axis = 1 )
+        df['distance'] = dis.fit_transform(  df[['distance']] )
+        fig1 = px.bar(data_frame = df, y = 'distance',title='Distance from origin')
+        st.plotly_chart(fig1)
         fig = px.line_3d(
                     data_frame = df, 
                     x = df['x'].values, 
                     y = df['y'].values, 
                     z = df['z'].values,
+                    title = "3d line plot of movements"
                     )
         # fig.update_layout(px.scatter_3d(pd.DataFrame("x":[0])))
         st.plotly_chart(fig)
 else:
 
     filepath  = st.selectbox("Select Folder",
-            [i for i in  os.listdir( cwd ) if ( ( os.path.isdir(i) ) and ('.' not in i))],
+            [i for i in  glob( cwd+"/S*" ) if ( ( os.path.isdir(i) ) and ('.' not in i))],
             index = 1)
     ls = sorted( glob(f"{filepath}/[!T]*") )
     ls = [ i for i in ls if 'iotool' in i.lower() ]
@@ -64,7 +77,13 @@ else:
     fr = st.checkbox("Apply Fourier Transform !")
     if fr:
         col =  st.selectbox("Choose to column to apply Fourier Transform !", 
-    ['AccelerometerAbsolute','GyroscopeX','GyroscopeZ','GyroscopeY'] )
+                        [   'AccelerometerX',
+                            'AccelerometerZ',
+                            'AccelerometerY',            
+                            'GyroscopeX',
+                            'GyroscopeZ',
+                            'GyroscopeY'
+                        ] )
 
     submit = st.button("Submit")
 
@@ -72,12 +91,11 @@ else:
     # processs = st.button("Go!")
     if submit:
         # loading the Parquet
-        with st.spinner("In Progress"):
+        with st.spinner("Preprocessing Data !"):
             st.text(os.path.join(kid,'final.parquet'))
             final = pd.read_parquet(os.path.join(kid,'final.parquet'))
             # Data Preprocessing 
             final = data_preprocessing( final )
-
             final['GyroscopeAbsolute'] = np.sqrt(final[["GyroscopeX",	"GyroscopeY",	"GyroscopeZ"]].sum(axis=1)**2)
         if fr:
             # Fourier Plot
@@ -91,8 +109,8 @@ else:
                 freq = n/T 
                 f,ax = plt.subplots(figsize = (20,5))
                 ax.stem(freq, np.abs(X),'b', markerfmt=" ", basefmt="-b")
-                ax.xlabel('Freq (Hz)')
-                ax.ylabel('FFT Amplitude |X(freq)|')
+                ax.set_xlabel('Freq (Hz)')
+                ax.set_ylabel('FFT Amplitude |X(freq)|')
                 st.pyplot(f)
 
         # Plotting STD and AR of sensor data
