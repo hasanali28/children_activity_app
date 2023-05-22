@@ -1,11 +1,11 @@
 import streamlit as st
 import plotly.express as px
 from datetime import datetime, timedelta,date
-
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.animation
 from scipy.fftpack import fft
+from utils import data_preprocessing
 from glob import glob 
 import pandas as pd
 import numpy as np
@@ -75,13 +75,24 @@ else:
         with st.spinner("In Progress"):
             st.text(os.path.join(kid,'final.parquet'))
             final = pd.read_parquet(os.path.join(kid,'final.parquet'))
+            # Data Preprocessing 
+            final = data_preprocessing( final )
+
             final['GyroscopeAbsolute'] = np.sqrt(final[["GyroscopeX",	"GyroscopeY",	"GyroscopeZ"]].sum(axis=1)**2)
         if fr:
+            # Fourier Plot
             with st.spinner("Plotting"):
-                X = final[col].values
-                X = fft(X)
+                x = final[col].values
+                sr = 1/0.001
+                X = fft(x)
+                N = len(X)
+                n = np.arange(N)
+                T = N/sr
+                freq = n/T 
                 f,ax = plt.subplots(figsize = (20,5))
-                ax.plot(X)
+                ax.stem(freq, np.abs(X),'b', markerfmt=" ", basefmt="-b")
+                ax.xlabel('Freq (Hz)')
+                ax.ylabel('FFT Amplitude |X(freq)|')
                 st.pyplot(f)
 
         # Plotting STD and AR of sensor data
