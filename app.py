@@ -117,39 +117,16 @@ else:
         final = final[["AccelerometerAbsolute","GyroscopeAbsolute"]].diff()
         final.dropna(inplace=True, how='any')
         with st.spinner("Plotting"):
-            f,[ax1,ax2] = plt.subplots(2,1, figsize = (20,10))
-            final.plot(alpha = 0.6, ax =  ax1)
+            # f,[ax1,ax2] = plt.subplots(2,1, figsize = (20,10))
+            # final.plot(alpha = 0.6, ax =  ax1)
+            fig1 = px.line(final)
             df = final.resample('100ms').agg({'AccelerometerAbsolute': [np.var, np.std] , 'GyroscopeAbsolute': [np.var, np.std] })
             df = df.T.reset_index(drop=True).T
             df.columns = ['AccAbs_var','AccAbs_std','GyroAbs_var','GyroAbs_std']
-            df.plot(alpha = 0.4,ax = ax2)
-            ax1.legend(bbox_to_anchor=(1.1, 1.05))
-            ax2.legend(bbox_to_anchor=(1.1, 1.05))
-            st.pyplot(f)
+            # df.plot(alpha = 0.4,ax = ax2)
+            fig2 = px.line(df, title = "Standard Deviation and Variance")
+            # ax1.legend(bbox_to_anchor=(1.1, 1.05))
+            # ax2.legend(bbox_to_anchor=(1.1, 1.05))
+            st.plotly_chart(fig1)
+            st.plotly_chart(fig2)
         
-        
-    # if anime:
-    #     with open(js,'r') as f:
-    #         js = json.load(f)
-    #     X = [i['Position']['X'] for i in js[0]['data']['SpatialData']['DataPoints']]
-    #     Y = [i['Position']['Y'] for i in js[0]['data']['SpatialData']['DataPoints']]
-    #     Z = [i['Position']['Z'] for i in js[0]['data']['SpatialData']['DataPoints']]
-    #     t = [i['DeltaTime'] for i in js[0]['data']['SpatialData']['DataPoints']]
-    #     df = pd.DataFrame({"time": t ,"x" : X, "y" : Y, "z" : Z})
-    #     df['time'] = df['time'].cumsum()
-    #     # data = pd.DataFrame(np.repeat(df.values, [i for i in range(1, df.shape[0] + 1)], axis=0), columns = ['time','x','y','z'])
-    #     # data['grp'] = [i for i in range(1,df.shape[0]+1) for j in range( i )]
-
-    #     fig = px.scatter_3d(
-    #         df, 
-    #         x='x',
-    #         y='y',
-    #         z='z',
-    #         size=[0.3*i for i in range(1,49)],
-    #         # color=[0.7*i for i in range(1,49)],
-    #         # animation_frame='grp',
-    #         # animation_group = 'time'
-    #         )    
-
-    #     fig.update_layout(width = 800, height = 800)    
-    #     st.plotly_chart(fig)
