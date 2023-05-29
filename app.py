@@ -18,40 +18,52 @@ dis = MinMaxScaler()
 cwd = os.getcwd()
 SNS_DATA = "Visualize Sensor Data"
 MOTION = "Study Motion"
-st.header("Visualisation Analytics")
+st.title("Visualisation Analytics")
 
 @st.cache
 def LoadingData():
-    with open('KeyFrameDensityData_1.json','r') as f:
+    with open('2022_5_13 - 2023_5_13 all.json','r') as f:
         js = json.load(f)
     return js
-
 opt = st.sidebar.radio("Choose",[SNS_DATA, MOTION])
 if opt == MOTION:
     js = LoadingData()
+    st.markdown("#### Choose the dates to pick sessions")
     IDS = [i['id'] for i in js ]
-    TIMES = [i['data']['Created'] for i in js ]
+    TIMES = [i['data']['Created'] for i in js]
     df = pd.DataFrame({'date':TIMES,'sessions':IDS })
-
-    with st.form(MOTION):
-
-        st.title(f"#{len(TIMES)} sessions ")
-
-        options = df['sessions'].values
-        keyframe_ids = st.selectbox("Choose Session", range(len(options)), format_func=lambda x: options[x] )
-        submit = st.form_submit_button("Submit")
+    # converting to datetime
+    df['date'] = pd.to_datetime(df['date'], format='%Y-%m-%d')
+    st,ed = st.columns(2)
+    st_date = st.date_input("Start Date:", 
+            value = df.date.min(),
+            # min_value = [ df.date.min(), df.date.max()], 
+            # max_value = 
+            )
+    ed_date = ed.date_input("End Date:", 
+            value = df.date.max(),
+            # min_value = str(df.date.min()), 
+            # max_value =  str(df.date.max())
+            )
+    df = df[df.date.between(pd.to_datetime(st_date),pd.to_datetime( ed_date))]
+    TIMES = df.sessions.tolist()
+    st.title(f"#{len(TIMES)} sessions ")
+    options = df['sessions'].values
+    keyframe_ids = st.selectbox("Choose Session", range(len(options)), format_func=lambda x: options[x] )
+    submit = st.button("Submit")
 
     if submit:
         x = [i['Position']['X'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
         y = [i['Position']['Y'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
         z = [i['Position']['Z'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
-        X = [i['Rotation']['X'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
-        Y = [i['Rotation']['Y'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
-        Z = [i['Rotation']['Z'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
-        W = [i['Rotation']['W'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        # X = [i['Rotation']['X'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        # Y = [i['Rotation']['Y'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        # Z = [i['Rotation']['Z'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
+        # W = [i['Rotation']['W'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
         t = [i['DeltaTime'] for i in js[keyframe_ids]['data']['SpatialData']['DataPoints']]
         df = pd.DataFrame({ "time": t ,"x" : x, "y" : y, "z" : z, 
-                            "rotation_X" : X, "rotation_Y" : Y, "rotation_Z" : Z, "orientaion_W": W })
+                            # "rotation_X" : X, "rotation_Y" : Y, "rotation_Z" : Z, "orientaion_W": W 
+                            })
         df['time'] = df['time'].cumsum()
         df['distance'] = df[["x",  "y",	"z"]].apply(lambda x : (sum([i**2 for i in x.values]))**0.5, axis = 1 )
         df['distance'] = dis.fit_transform(  df[['distance']] )

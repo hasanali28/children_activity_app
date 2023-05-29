@@ -3,13 +3,15 @@ import numpy as np
 from scipy.signal import butter, lfilter, sosfilt
 # Filter requirements.
 
-cutoff = 0.8  
+cutoff = 50  
 SOS = b,a = butter(
     N = 4, 
     Wn = cutoff, 
     btype='low', 
     analog=False, 
-    output='sos')
+    output='sos',
+    fs = 1000 
+    )
 
 def noise_filter(y):
     n = 2  # the larger n is, the smoother curve will be
